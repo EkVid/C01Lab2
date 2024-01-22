@@ -179,14 +179,40 @@ app.get("/getAllNotes", express.json(), async (req, res) => {
         return res.status(401).send("Unauthorized.");
       }
 
-      // Find all notes belonging to the user
       const collection = db.collection(COLLECTIONS.notes);
       const notes = await collection
         .find({ username: decoded.username })
         .toArray();
 
-      // Return the notes in the response
       res.json({ response: notes });
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.delete("deleteNote/:noteId", express.json(), async (req, res) => {
+  try {
+    const noteId = req.params.noteId;
+    if (!ObjectId.isValid(noteId)) {
+      return res.status(400).json()({ error: "Invalid note ID" });
+    }
+    const token = req.headers.authorization.split(" ")[1];
+    jwt.verify(token, "secret-key", async (err, decoded) => {
+      if (err) {
+        return res.status(401).send("Unauthorized.");
+      }
+
+      const collection = db.collection(COLLECTIONS.notes);
+      const result = await collection.deleteOne({
+        username: decoded.username,
+        _id: new ObjectId(noteId),
+      });
+      if (result.deletedCount === 1) {
+        res.json({ response: `Document with ID ${noteId} properly deleted.` });
+      } else {
+        res.status(404).json({ error: `Note with ID ${noteId} not found.` });
+      }
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
