@@ -209,7 +209,54 @@ app.delete("deleteNote/:noteId", express.json(), async (req, res) => {
         _id: new ObjectId(noteId),
       });
       if (result.deletedCount === 1) {
-        res.json({ response: `Document with ID ${noteId} properly deleted.` });
+        res
+          .status(200)
+          .json({ response: `Document with ID ${noteId} properly deleted.` });
+      } else {
+        res.status(404).json({ error: `Note with ID ${noteId} not found.` });
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.patch("/editNote/:noteId", express.json(), async (req, res) => {
+  try {
+    const noteId = req.params.noteId;
+    if (!ObjectId.isValid(noteId)) {
+      return res.status(400).json({ error: "Invalid note ID." });
+    }
+
+    const token = req.headers.authorization.split(" ")[1];
+    jwt.verify(token, "secret-key", async (err, decoded) => {
+      if (err) {
+        return res.status(401).send("Unauthorized.");
+      }
+
+      const { title, content } = req.body;
+      if (!title && !content) {
+        return res.status(400).json({
+          error: "Either 'title' or 'content' is required for updating.",
+        });
+      }
+
+      const collection = db.collection(COLLECTIONS.notes);
+      const filter = {
+        username: decoded.username,
+        _id: new ObjectId(noteId),
+      };
+
+      const updateFields = {};
+      if (title) updateFields.title = title;
+      if (content) updateFields.content = content;
+
+      const result = await collection.updateOne(filter, { $set: updateFields });
+
+      if (result.matchedCount === 1) {
+        res
+          .status(200)
+          .json({ response: `Document with ID ${noteId} properly updated.` });
       } else {
         res.status(404).json({ error: `Note with ID ${noteId} not found.` });
       }
